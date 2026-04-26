@@ -36,23 +36,37 @@ Requirements:
 MAX_SIZE = 10 * 1024 * 1024 # 10 MB cap (large file)
 MIN_WORDS = 50 # low-value (dead url)
 
-# patterns that almost always indicate a calendar / date trap or infinite space
-TRAP_PATTERNS = re.compile(
-    r"(calendar|date=|action=|sort=|page=\d{3,}|"
-    r"sid=|session|replytocom|share=|print=|lang=|"
+# Query/action patterns that usually create duplicate/generated pages
+QUERY_TRAP_PATTERNS = re.compile(
+    r"(sid=|session|replytocom|share=|print=|lang=|"
+    r"sort=|filter=|page=\d{3,}|"
     r"do=export_pdf|do=edit|do=login|do=index|do=media|do=recent|do=revisions|do=backlink|do=$|"
     r"tab_files=|tab_details=|image=|mediado=|sectok=|export_code|"
     r"idx=|rev=|subPage=|skin=|"
-    r"/login|login\?|"
     r"s%5B%5D=|s\[\]=|"
-    r"ical=1|outlook-ical=1|"
-    r"timeline\?|precision=second|from=|"
-    r"zip-attachment|format=txt|"
-    r"/events/\d{4}-\d{2}-\d{2}/?|"
+    r"ical=1|outlook-ical=1|format=txt)",
+    re.IGNORECASE
+)
+
+# Calendar/date archive patterns that can create infinite spaces
+CALENDAR_TRAP_PATTERNS = re.compile(
+    r"(/events/\d{4}-\d{2}-\d{2}/?|"
     r"/events/month/\d{4}-\d{2}/?|"
     r"/events/category/[^?]*/\d{4}-\d{2}/?|"
     r"/day/\d{4}-\d{2}-\d{2}/?|"
     r"\d{4}[/-]\d{2}[/-]\d{2}[/-]\d{2})",
+    re.IGNORECASE
+)
+
+# Wiki/history/export/download patterns
+WIKI_TRAP_PATTERNS = re.compile(
+    r"(timeline\?|precision=second|from=|zip-attachment)",
+    re.IGNORECASE
+)
+
+# Login pages should not be crawled/counted
+LOGIN_TRAP_PATTERNS = re.compile(
+    r"(/login|login\?)",
     re.IGNORECASE
 )
 
@@ -220,7 +234,17 @@ def is_valid(url):
         
         # check trap patterns
         full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
-        if TRAP_PATTERNS.search(full_url):
+
+        if QUERY_TRAP_PATTERNS.search(full_url):
+            return False
+
+        if CALENDAR_TRAP_PATTERNS.search(full_url):
+            return False
+
+        if WIKI_TRAP_PATTERNS.search(full_url):
+            return False
+
+        if LOGIN_TRAP_PATTERNS.search(full_url):
             return False
 
         return not re.match(
@@ -233,9 +257,8 @@ def is_valid(url):
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
-    except (TypeError, ValueError) as e:
-        print (f"{e},: \nError for ", parsed)
-        raise False
+    except (TypeError, ValueError):
+        return False
 
 
 def print_report():

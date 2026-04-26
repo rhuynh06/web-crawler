@@ -49,6 +49,15 @@ TRAP_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
+# for pages we don't have access to (needs ics log in)
+ACCESS_DENIED_PATTERNS = re.compile(
+    r"(insufficient access privileges|access to most of the information.*restricted|"
+    r"you are currently not logged in|enter your authentication credentials|"
+    r"please make sure to login|username/password|"
+    r"permission denied|access denied|login required|you need to log in|forbidden)",
+    re.IGNORECASE
+)
+
 # stop words from https://www.ranks.nl/stopwords
 STOP_WORDS =  ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 
                'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't", 'did', "didn't", 'do', 'does', "doesn't", 'doing', "don't", 'down', 'during', 'each', 'few', 
@@ -93,6 +102,11 @@ def extract_next_links(url, resp):
     
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
+
+    # skip login/access-denied pages that still return 200
+    if ACCESS_DENIED_PATTERNS.search(text):
+        return []
+
     tokens = []
     cur = ""
 

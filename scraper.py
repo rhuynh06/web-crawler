@@ -60,7 +60,8 @@ CALENDAR_TRAP_PATTERNS = re.compile(
 
 # Wiki/history/export/download patterns
 WIKI_TRAP_PATTERNS = re.compile(
-    r"(timeline\?|precision=second|from=|zip-attachment)",
+    r"(timeline\?|precision=second|from=|"
+    r"zip-attachment|raw-attachment|/attachment/|format=txt)",
     re.IGNORECASE
 )
 
@@ -249,13 +250,17 @@ def is_valid(url):
 
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|tiff?|mid|mp2|mp3|mp4"
+            + r"|png|svg|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|pps|ppsx|doc|docx|xls|xlsx|names"
-            + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+            + r"|data|dat|sql|db|sqlite|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
-            + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|thmx|mso|arff|rtf|jar|csv|tsv|txt"
+            + r"|py|java|c|cc|cpp|cxx|h|hpp|hh|sh|bash|zsh|pl|rb|go|rs|php"
+            + r"|class|war|ear"
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$",
+            parsed.path.lower()
+        )
 
     except (TypeError, ValueError):
         return False

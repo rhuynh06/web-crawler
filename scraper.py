@@ -58,7 +58,7 @@ def extract_next_links(url, resp):
         return [] # skip page if crash/smt goes wrong
     
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
-    text = soup.get_text(seperator=" ", strip=True) # strip HTML, just actual text
+    text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
     tokens = []
     cur = ""
     for c in text:

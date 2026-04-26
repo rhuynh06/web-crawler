@@ -40,9 +40,11 @@ MIN_WORDS = 50 # low-value (dead url)
 TRAP_PATTERNS = re.compile(
     r"(calendar|date=|action=|sort=|page=\d{3,}|"
     r"sid=|session|replytocom|share=|print=|lang=|"
-    r"do=export_pdf|do=edit|do=login|do=index|do=media|do=recent|do=revisions|"
+    r"do=export_pdf|do=edit|do=login|do=index|do=media|do=recent|do=revisions|do=backlink|do=$|"
     r"tab_files=|tab_details=|image=|mediado=|sectok=|export_code|"
-    r"idx=|rev=|subPage=|"
+    r"idx=|rev=|subPage=|skin=|"
+    r"/login|login\?|"
+    r"s%5B%5D=|"
     r"\d{4}/\d{2}/\d{2}/\d{2})",
     re.IGNORECASE
 )

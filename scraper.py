@@ -45,7 +45,10 @@ TRAP_PATTERNS = re.compile(
     r"idx=|rev=|subPage=|skin=|"
     r"/login|login\?|"
     r"s%5B%5D=|s\[\]=|"
-    r"\d{4}/\d{2}/\d{2}/\d{2})",
+    r"ical=1|outlook-ical=1|"
+    r"/day/\d{4}-\d{2}-\d{2}|"
+    r"/events/category/[^/]+/\d{4}-\d{2}|"
+    r"\d{4}[/-]\d{2}[/-]\d{2}[/-]\d{2})",
     re.IGNORECASE
 )
 
@@ -177,11 +180,15 @@ def extract_next_links(url, resp):
         # <a href="link">
         href = tag["href"].strip()
 
-        # base + relative -> absolute url (full link on web)
-        href = urljoin(page_url, href)
+        try:
+            # base + relative -> absolute url (full link on web)
+            href = urljoin(page_url, href)
 
-        # defragment
-        href = urldefrag(href)[0]
+            # defragment
+            href = urldefrag(href)[0]
+
+        except ValueError:
+            continue
 
         links.append(href)
 
@@ -222,9 +229,9 @@ def is_valid(url):
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
-    except TypeError:
-        print ("TypeError for ", parsed)
-        raise
+    except (TypeError, ValueError) as e:
+        print (f"{e},: \nError for ", parsed)
+        raise False
 
 
 def print_report():

@@ -46,8 +46,9 @@ TRAP_PATTERNS = re.compile(
     r"/login|login\?|"
     r"s%5B%5D=|s\[\]=|"
     r"ical=1|outlook-ical=1|"
-    r"/day/\d{4}-\d{2}-\d{2}|"
-    r"/events/category/[^/]+/\d{4}-\d{2}|"
+    r"/events/\d{4}-\d{2}-\d{2}/?|"
+    r"/events/category/[^?]*/\d{4}-\d{2}/?|"
+    r"/day/\d{4}-\d{2}-\d{2}/?|"
     r"\d{4}[/-]\d{2}[/-]\d{2}[/-]\d{2})",
     re.IGNORECASE
 )

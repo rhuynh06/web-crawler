@@ -44,7 +44,7 @@ TRAP_PATTERNS = re.compile(
     r"tab_files=|tab_details=|image=|mediado=|sectok=|export_code|"
     r"idx=|rev=|subPage=|skin=|"
     r"/login|login\?|"
-    r"s%5B%5D=|"
+    r"s%5B%5D=|s\[\]=|"
     r"\d{4}/\d{2}/\d{2}/\d{2})",
     re.IGNORECASE
 )
@@ -120,6 +120,10 @@ def extract_next_links(url, resp):
     # defragment
     page_url = resp.raw_response.url if getattr(resp.raw_response, "url", None) else url
     page_url = urldefrag(page_url)[0] # [url, fragment]
+
+    # skip if final redirected URL is invalid/trap
+    if not is_valid(page_url):
+        return []
 
     # update visited
     if page_url not in visited:

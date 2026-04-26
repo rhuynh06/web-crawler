@@ -72,8 +72,9 @@ def extract_next_links(url, resp):
             tokens.append(cur)
     
     # check for near-dupe detection?
-    # fingerprints
+    # TODO: fingerprints
     
+    # TODO: check for traps
 
     # defragment
     url = urldefrag(url)[0] # [url, fragment]
@@ -132,3 +133,25 @@ def is_valid(url):
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+
+def print_report():
+    print("\n=== CRAWL REPORT ===\n")
+
+    # unique pages
+    print(f"Unique pages crawled: {len(visited)}\n")
+
+    # longest page by word count
+    if page_freq:
+        longest = max(page_freq, key=page_freq.get)
+        print(f"Longest page: {longest}  ({page_freq[longest]} words)\n")
+
+    # 50 most common words
+    print("50 most common words:")
+    for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:50]:
+        print(f"   {word:30s} {count}")
+
+    # subdomains of ics.uci.edu
+    print(f"\nSubdomains of ics.uci.edu ({len(subdomains)} total):")
+    for sub in sorted(subdomains):
+        print(f"   {sub}, {len(subdomains[sub])}")

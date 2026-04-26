@@ -4,13 +4,6 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 import hashlib
 
-'''
-allowed URL paths:
- *.ics.uci.edu/*
- *.cs.uci.edu/*  
- *.informatics.uci.edu/* 
- *.stat.uci.edu/*
-'''
 
 # for report
 visited = set() # unique pages
@@ -18,6 +11,27 @@ word_freq = defaultdict(int) # word: count
 page_freq = {} # url: word count
 subdomains = defaultdict(set) # subdomain: set of pages
 fingerprints = set() # dupe-detection
+
+'''
+Requirements:
+- Honor the politeness delay for each site
+- Crawl all pages with high textual information content
+- Detect and avoid infinite traps
+- Detect and avoid sets of similar pages with no information
+- Detect and avoid dead URLs that return a 200 status but no data (click here to see what the different HTTP status codes meanLinks to an external site.)
+- Detect and avoid crawling very large files, especially if they have low information value
+'''
+
+MAX_SIZE = 2 * 1024 * 1024 # 10 MB cap (large file)
+MIN_WORDS = 50 # low-value (dead url)
+
+# patterns that almost always indicate a calendar / date trap or infinite space
+TRAP_PATTERNS = re.compile(
+    r"(calendar|date=|action=|sort=|filter=|page=\d{3,}|"
+    r"sid=|session|replytocom|share=|print=|lang=|"
+    r"\d{4}/\d{2}/\d{2}/\d{2})",
+    re.IGNORECASE
+)
 
 # stop words from https://www.ranks.nl/stopwords
 STOP_WORDS =  ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 
@@ -51,6 +65,10 @@ def extract_next_links(url, resp):
     
     content = resp.raw_response.content
 
+    # skip files too large
+    if len(content) > MAX_SIZE:
+        return []
+
     # parse HTML
     try:
         soup = BeautifulSoup(content, "lxml")
@@ -70,11 +88,16 @@ def extract_next_links(url, resp):
                 cur = ""
         if cur: # end of line
             tokens.append(cur)
+
+    # skip dead (near-empty) URLs
+    if len(tokens) < MIN_WORDS:
+        return []
     
-    # check for near-dupe detection?
-    # TODO: fingerprints
-    
-    # TODO: check for traps
+    # check for near-dupe detection
+    fp = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()
+    for fp in fingerprints:
+        return []
+    fingerprints.add(fp)
 
     # defragment
     url = urldefrag(url)[0] # [url, fragment]
@@ -110,8 +133,6 @@ def extract_next_links(url, resp):
 
     return links
 
-
-
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
@@ -120,6 +141,23 @@ def is_valid(url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
+        
+        # allowed domains
+        host = parsed.netloc.lower()
+        allowed = (
+            host.endswith(".ics.uci.edu")        or host == "ics.uci.edu"        or
+            host.endswith(".cs.uci.edu")          or host == "cs.uci.edu"          or
+            host.endswith(".informatics.uci.edu") or host == "informatics.uci.edu" or
+            host.endswith(".stat.uci.edu")        or host == "stat.uci.edu"
+        )
+        if not allowed:
+            return False
+        
+        # check trap patterns
+        full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
+        if TRAP_PATTERNS.search(full_url):
+            return False
+
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -143,7 +181,7 @@ def print_report():
 
     # longest page by word count
     if page_freq:
-        longest = max(page_freq, key=page_freq.get)
+        longest = max(page_freq, key=lambda url: page_freq[url])
         print(f"Longest page: {longest}  ({page_freq[longest]} words)\n")
 
     # 50 most common words

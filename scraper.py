@@ -1,40 +1,76 @@
 import re
-from urllib.parse import urlparse, urljoin, urldefrag
-from collections import defaultdict
-from bs4 import BeautifulSoup
 import hashlib
+import json
+import os
+from urllib.parse import urlparse, urljoin, urldefrag
+from bs4 import BeautifulSoup
+from collections import defaultdict
 
+# file paths
+DATA_DIR = "crawl_data"
+PAGES_FILE = os.path.join(DATA_DIR, "pages.jsonl")
+WORDS_FILE = os.path.join(DATA_DIR, "words.txt")
+SUBDOMAINS_FILE = os.path.join(DATA_DIR, "subdomains.jsonl")
 
-# for report
-visited = set() # unique pages
-word_freq = defaultdict(int) # word: count
-page_freq = {} # url: word count
-subdomains = defaultdict(set) # subdomain: set of pages
-fingerprints = set() # dupe-detection
+os.makedirs(DATA_DIR, exist_ok=True)
 
-'''
-Requirements:
-- Honor the politeness delay for each site
-- Crawl all pages with high textual information content
-- Detect and avoid infinite traps
-- Detect and avoid sets of similar pages with no information
-- Detect and avoid dead URLs that return a 200 status but no data (click here to see what the different HTTP status codes meanLinks to an external site.)
-- Detect and avoid crawling very large files, especially if they have low information value
-'''
+# globals (perists thru entire crawl, too expensive to re-open to read/write for each page)
+visited = set()
 
+def _load_visited():
+    if os.path.exists(PAGES_FILE):
+        with open(PAGES_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                visited.add(json.loads(line)["url"])
+ 
+_load_visited()
+
+# constants
 MAX_SIZE = 10 * 1024 * 1024 # 10 MB cap (large file)
-MIN_WORDS = 10 # low-value (dead url)
+MIN_TOKEN = 100 # low-value (dead url/empty page)
+TRAP_PATTERNS = re.compile(
+    r"("
 
-# patterns that almost always indicate a calendar / date trap or infinite space
-# TRAP_PATTERNS = re.compile(
-#     r"(calendar|date=|action=|sort=|filter=|page=\d{3,}|"
-#     r"sid=|session|replytocom|share=|print=|lang=|"
-#     r"\d{4}/\d{2}/\d{2}/\d{2})",
-#     re.IGNORECASE
-# )
+    # -------------------------------
+    # WordPress / dynamic query traps
+    # -------------------------------
+    r"[?&](p|page_id)=\d+|"
+    r"[?&](replytocom|share|print)=|"
+    r"/wp-admin|/wp-login|"
 
-# stop words from https://www.ranks.nl/stopwords
-STOP_WORDS =  ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 
+    # -------------------------------
+    # Search / filter / sorting traps
+    # -------------------------------
+    r"[?&](q|search|filter|category|tag|sort|order|format|version|view|output|download|redirect_to|redirect)=|"
+    r"[?&]sort=|[?&]order=|"
+    r"filter%5B|filter\[|"
+
+    # -------------------------------
+    # Pagination traps
+    # -------------------------------
+    r"/page/\d+|"
+    r"[?&]page=\d{2,}|"
+    r"[?&]paged=\d+|"
+
+    # -------------------------------
+    # Calendar / event traps
+    # -------------------------------
+    r"/calendar|/events|"
+    r"/day/\d{4}-\d{2}-\d{2}|"
+    r"/\d{4}/\d{2}/|"
+
+    # -------------------------------
+    # DokuWiki / ICS internal traps
+    # -------------------------------
+    r"\?do=|" # very similar + little text, shouldn't pass MIN_WORDS test
+    r"[?&]idx=" # open dif sections, same page
+
+    r")",
+    re.IGNORECASE
+)
+
+# stop words from https://www.ranks.nl/stopwords, set > list
+STOP_WORDS =  set(['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 
                'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't", 'did', "didn't", 'do', 'does', "doesn't", 'doing', "don't", 'down', 'during', 'each', 'few', 
                'for', 'from', 'further', 'had', "hadn't", 'has', "hasn't", 'have', "haven't", 'having', 'he', "he'd", "he'll", "he's", 'her', 'here', "here's", 'hers', 'herself', 
                'him', 'himself', 'his', 'how', "how's", 'i', "i'd", "i'll", "i'm", "i've", 'if', 'in', 'into', 'is', "isn't", 'it', "it's", 'its', 'itself', "let's", 'me', 'more', 
@@ -42,14 +78,13 @@ STOP_WORDS =  ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 
                "shan't", 'she', "she'd", "she'll", "she's", 'should', "shouldn't", 'so', 'some', 'such', 'than', 'that', "that's", 'the', 'their', 'theirs', 'them', 'themselves', 
                'then', 'there', "there's", 'these', 'they', "they'd", "they'll", "they're", "they've", 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 
                "wasn't", 'we', "we'd", "we'll", "we're", "we've", 'were', "weren't", 'what', "what's", 'when', "when's", 'where', "where's", 'which', 'while', 'who', "who's", 'whom', 
-               'why', "why's", 'with', "won't", 'would', "wouldn't", 'you', "you'd", "you'll", "you're", "you've", 'your', 'yours', 'yourself', 'yourselves']
+               'why', "why's", 'with', "won't", 'would', "wouldn't", 'you', "you'd", "you'll", "you're", "you've", 'your', 'yours', 'yourself', 'yourselves'])
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
-    # Implementation required.
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
@@ -69,7 +104,7 @@ def extract_next_links(url, resp):
     if len(content) > MAX_SIZE:
         return []
 
-    # parse HTML
+    # parse HTML (get actual text)
     try:
         soup = BeautifulSoup(content, "lxml")
     except Exception:
@@ -86,49 +121,60 @@ def extract_next_links(url, resp):
             if cur:
                 tokens.append(cur)
                 cur = ""
-
     if cur: # end of line
         tokens.append(cur)
 
     # skip dead (near-empty) URLs
-    if len(tokens) < MIN_WORDS:
+    if len(tokens) < MIN_TOKEN:
         return []
-    
-    # check for near-dupe detection
-    fp = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()
-    for fp in fingerprints:
-        return []
-    fingerprints.add(fp)
 
     # defragment
-    url = urldefrag(url)[0] # [url, fragment]
+    page_url = urldefrag(resp.raw_response.url)[0] # [url, fragment]
 
-    # update visited
-    visited.add(url)
+    # check visited, update if new
+    if page_url in visited:
+        return _extract_links(soup, resp.raw_response.url)
+    visited.add(page_url)
 
-    # stats for report (word freq, longest page, subdomains)
-    for token in tokens:
-        if token not in STOP_WORDS:
-            word_freq[token] += 1
+    # record page: url, word_count
+    with open(PAGES_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "url": page_url,
+            "word_count": len(tokens)
+        }) + "\n")
 
-    page_freq[url] = len(tokens)
+    # record word freq
+    with open(WORDS_FILE, "a", encoding="utf-8") as f:
+        for token in tokens:
+            if token not in STOP_WORDS:
+                f.write(token + "\n")
 
-    parsed = urlparse(url) # [scheme/protocol (http), netloc (domain), path (/), query (?), fragment (#)]
-    host = parsed.netloc.lower()
+    # record subdomains
+    host = urlparse(page_url).netloc.lower()
     if host.endswith(".uci.edu"):
-        subdomains[host].add(url)
+        with open(SUBDOMAINS_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "subdomain": host,
+                "url": page_url
+            }) + "\n")
 
-    # extract new links to crawl
+    return _extract_links(soup, resp.raw_response.url)
+ 
+ 
+def _extract_links(soup, base_url):
     links = []
     for tag in soup.find_all("a", href=True):
         # <a href="link">
         href = tag["href"].strip()
 
-        # base + relative -> absolute url (full link on web)
-        href = urljoin(resp.raw_response.url, href)
+        try: # bad links
+            # base + relative -> absolute url (full link on web)
+            href = urljoin(base_url, href)
 
-        # defragment
-        href = urldefrag(href)[0]
+            # defragment
+            href = urldefrag(href)[0]
+        except ValueError:
+            continue
 
         links.append(href)
 
@@ -146,7 +192,7 @@ def is_valid(url):
         # allowed domains
         host = parsed.netloc.lower()
         allowed = (
-            host.endswith(".ics.uci.edu")        or host == "ics.uci.edu"        or
+            host.endswith(".ics.uci.edu")         or host == "ics.uci.edu"         or
             host.endswith(".cs.uci.edu")          or host == "cs.uci.edu"          or
             host.endswith(".informatics.uci.edu") or host == "informatics.uci.edu" or
             host.endswith(".stat.uci.edu")        or host == "stat.uci.edu"
@@ -155,9 +201,9 @@ def is_valid(url):
             return False
         
         # check trap patterns
-        # full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
-        # if TRAP_PATTERNS.search(full_url):
-        #     return False
+        full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
+        if TRAP_PATTERNS.search(full_url):
+            return False
 
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
@@ -167,6 +213,16 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
+
+            # code files
+            + r"|thmx|mso|arff|rtf|jar|csv"
+            + r"|txt|sql|py|java|c|cpp|h|hpp|cc|cs"
+            + r"|js|ts|jsx|tsx"
+            + r"|json|xml|yaml|yml"
+            + r"|sh|bash|zsh"
+            + r"|log|cfg|ini|conf"
+            + r"|ipynb"
+
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
     except TypeError:
@@ -175,22 +231,45 @@ def is_valid(url):
 
 
 def print_report():
-    print("\n\n=== CRAWL REPORT ===\n\n")
-
+    print("\n\n=== CRAWL REPORT ===\n")
+ 
+    # read pages
+    pages = {}
+    if os.path.exists(PAGES_FILE):
+        with open(PAGES_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                entry = json.loads(line.strip())
+                pages[entry["url"]] = entry["word_count"]
+ 
     # unique pages
-    print(f"Unique pages crawled: {len(visited)}\n")
-
-    # longest page by word count
-    if page_freq:
-        longest = max(page_freq, key=lambda url: page_freq[url])
-        print(f"Longest page: {longest}  ({page_freq[longest]} words)\n")
-
+    print(f"1. Unique pages: {len(pages)}\n")
+ 
+    # longest page
+    if pages:
+        longest = max(pages, key=lambda u: pages[u])
+        print(f"2. Longest page: {longest}  ({pages[longest]} words)\n")
+ 
     # 50 most common words
-    print("50 most common words:")
-    for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:50]:
+    word_counts = defaultdict(int)
+    if os.path.exists(WORDS_FILE):
+        with open(WORDS_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                word = line.strip()
+                if word:
+                    word_counts[word] += 1
+ 
+    print("3. 50 most common words:")
+    for word, count in sorted(word_counts.items(), key=lambda x: -x[1])[:50]:
         print(f"   {word:30s} {count}")
-
-    # subdomains of ics.uci.edu
-    print(f"\nSubdomains of ics.uci.edu ({len(subdomains)} total):")
-    for sub in sorted(subdomains):
-        print(f"   {sub}, {len(subdomains[sub])}")
+ 
+    # subdomains
+    subdomain_pages = defaultdict(set)
+    if os.path.exists(SUBDOMAINS_FILE):
+        with open(SUBDOMAINS_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                entry = json.loads(line.strip())
+                subdomain_pages[entry["subdomain"]].add(entry["url"])
+ 
+    print(f"\n4. Subdomains of .uci.edu ({len(subdomain_pages)} total):")
+    for sub in sorted(subdomain_pages):
+        print(f"   {sub}, {len(subdomain_pages[sub])}")

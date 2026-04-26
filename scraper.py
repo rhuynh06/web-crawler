@@ -22,16 +22,16 @@ Requirements:
 - Detect and avoid crawling very large files, especially if they have low information value
 '''
 
-MAX_SIZE = 2 * 1024 * 1024 # 10 MB cap (large file)
-MIN_WORDS = 50 # low-value (dead url)
+MAX_SIZE = 10 * 1024 * 1024 # 10 MB cap (large file)
+MIN_WORDS = 10 # low-value (dead url)
 
 # patterns that almost always indicate a calendar / date trap or infinite space
-TRAP_PATTERNS = re.compile(
-    r"(calendar|date=|action=|sort=|filter=|page=\d{3,}|"
-    r"sid=|session|replytocom|share=|print=|lang=|"
-    r"\d{4}/\d{2}/\d{2}/\d{2})",
-    re.IGNORECASE
-)
+# TRAP_PATTERNS = re.compile(
+#     r"(calendar|date=|action=|sort=|filter=|page=\d{3,}|"
+#     r"sid=|session|replytocom|share=|print=|lang=|"
+#     r"\d{4}/\d{2}/\d{2}/\d{2})",
+#     re.IGNORECASE
+# )
 
 # stop words from https://www.ranks.nl/stopwords
 STOP_WORDS =  ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 
@@ -86,8 +86,9 @@ def extract_next_links(url, resp):
             if cur:
                 tokens.append(cur)
                 cur = ""
-        if cur: # end of line
-            tokens.append(cur)
+
+    if cur: # end of line
+        tokens.append(cur)
 
     # skip dead (near-empty) URLs
     if len(tokens) < MIN_WORDS:
@@ -114,7 +115,7 @@ def extract_next_links(url, resp):
 
     parsed = urlparse(url) # [scheme/protocol (http), netloc (domain), path (/), query (?), fragment (#)]
     host = parsed.netloc.lower()
-    if host.endswith(".ics.uci.edu"):
+    if host.endswith(".uci.edu"):
         subdomains[host].add(url)
 
     # extract new links to crawl
@@ -154,9 +155,9 @@ def is_valid(url):
             return False
         
         # check trap patterns
-        full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
-        if TRAP_PATTERNS.search(full_url):
-            return False
+        # full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
+        # if TRAP_PATTERNS.search(full_url):
+        #     return False
 
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
@@ -174,7 +175,7 @@ def is_valid(url):
 
 
 def print_report():
-    print("\n=== CRAWL REPORT ===\n")
+    print("\n\n=== CRAWL REPORT ===\n\n")
 
     # unique pages
     print(f"Unique pages crawled: {len(visited)}\n")

@@ -1,18 +1,25 @@
 from configparser import ConfigParser
 from argparse import ArgumentParser
+import os
+import shutil
 
 from utils.server_registration import get_cache_server
 from utils.config import Config
 from crawler import Crawler
+from scraper import print_report
 
 
 def main(config_file, restart):
+    if restart and os.path.exists("crawl_data"):
+        shutil.rmtree("crawl_data")
+
     cparser = ConfigParser()
     cparser.read(config_file)
     config = Config(cparser)
     config.cache_server = get_cache_server(config, restart)
     crawler = Crawler(config, restart)
     crawler.start()
+    print_report()
 
 
 if __name__ == "__main__":

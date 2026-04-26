@@ -4,6 +4,17 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 import hashlib
 
+import json
+import os
+
+#for print report
+DATA_DIR = "crawl_data"
+PAGES_FILE = os.path.join(DATA_DIR, "pages.jsonl")
+WORDS_FILE = os.path.join(DATA_DIR, "words.txt")
+SUBDOMAINS_FILE = os.path.join(DATA_DIR, "subdomains.jsonl")
+
+os.makedirs(DATA_DIR, exist_ok=True)
+
 
 # for report
 visited = set() # unique pages
@@ -22,13 +33,15 @@ Requirements:
 - Detect and avoid crawling very large files, especially if they have low information value
 '''
 
-MAX_SIZE = 2 * 1024 * 1024 # 10 MB cap (large file)
+MAX_SIZE = 10 * 1024 * 1024 # 10 MB cap (large file)
 MIN_WORDS = 50 # low-value (dead url)
 
 # patterns that almost always indicate a calendar / date trap or infinite space
 TRAP_PATTERNS = re.compile(
-    r"(calendar|date=|action=|sort=|filter=|page=\d{3,}|"
+    r"(calendar|date=|action=|sort=|page=\d{3,}|"
     r"sid=|session|replytocom|share=|print=|lang=|"
+    r"do=export_pdf|do=edit|do=login|do=index|"
+    r"idx=|sectok=|export_code|subPage=|"
     r"\d{4}/\d{2}/\d{2}/\d{2})",
     re.IGNORECASE
 )
@@ -79,6 +92,7 @@ def extract_next_links(url, resp):
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
     tokens = []
     cur = ""
+
     for c in text:
         if c.isascii() and c.isalnum():
             cur += c.lower()
@@ -86,36 +100,55 @@ def extract_next_links(url, resp):
             if cur:
                 tokens.append(cur)
                 cur = ""
-        if cur: # end of line
-            tokens.append(cur)
+
+    if cur:
+        tokens.append(cur)
 
     # skip dead (near-empty) URLs
     if len(tokens) < MIN_WORDS:
         return []
     
     # check for near-dupe detection
-    fp = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()
-    for fp in fingerprints:
-        return []
-    fingerprints.add(fp)
+    # fp = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()
+    # if fp in fingerprints:
+    #     return []
+    # fingerprints.add(fp)
 
     # defragment
-    url = urldefrag(url)[0] # [url, fragment]
+    page_url = resp.raw_response.url if getattr(resp.raw_response, "url", None) else url
+    page_url = urldefrag(page_url)[0] # [url, fragment]
 
     # update visited
-    visited.add(url)
+    if page_url not in visited:
+        visited.add(page_url)
 
-    # stats for report (word freq, longest page, subdomains)
-    for token in tokens:
-        if token not in STOP_WORDS:
-            word_freq[token] += 1
+        # stats for report (word freq, longest page, subdomains)
+        os.makedirs(DATA_DIR, exist_ok=True)
 
-    page_freq[url] = len(tokens)
+        with open(PAGES_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "url": page_url,
+                "word_count": len(tokens)
+            }) + "\n")
 
-    parsed = urlparse(url) # [scheme/protocol (http), netloc (domain), path (/), query (?), fragment (#)]
-    host = parsed.netloc.lower()
-    if host.endswith(".ics.uci.edu"):
-        subdomains[host].add(url)
+        with open(WORDS_FILE, "a", encoding="utf-8") as f:
+            for token in tokens:
+                if token not in STOP_WORDS:
+                    word_freq[token] += 1
+                    f.write(token + "\n")
+
+        page_freq[page_url] = len(tokens)
+
+        parsed = urlparse(page_url) # [scheme/protocol (http), netloc (domain), path (/), query (?), fragment (#)]
+        host = parsed.netloc.lower()
+        if host.endswith(".uci.edu"):
+            subdomains[host].add(page_url)
+
+            with open(SUBDOMAINS_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "subdomain": host,
+                    "url": page_url
+                }) + "\n")
 
     # extract new links to crawl
     links = []
@@ -124,7 +157,7 @@ def extract_next_links(url, resp):
         href = tag["href"].strip()
 
         # base + relative -> absolute url (full link on web)
-        href = urljoin(resp.raw_response.url, href)
+        href = urljoin(page_url, href)
 
         # defragment
         href = urldefrag(href)[0]

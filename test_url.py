@@ -1,7 +1,7 @@
 from scraper import is_valid, TRAP_PATTERNS
 from urllib.parse import urlparse
 
-TEST_URLS = ["https://ics.uci.edu/event/from-coevolution-signals-to-mutation-effects-statistically-calibrated-protein-contact-maps-and-fitness-prediction/"]
+TEST_URLS = ["https://ics.uci.edu/~alfchen/pubs/alfred_dasc11_cbf.bib"]
 
 def test_url(url):
     print("=" * 80)

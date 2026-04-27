@@ -36,12 +36,17 @@ TRAP_PATTERNS = re.compile(
     # -------------------------------
     r"[?&](p|page_id)=\d+|"
     r"[?&](replytocom|share|print)=|"
+
+    # -------------------------------
+    # Permissions
+    # -------------------------------
+    r"/login|/register|/preferences|"
     r"/wp-admin|/wp-login|"
 
     # -------------------------------
     # Search / filter / sorting traps
     # -------------------------------
-    r"[?&](q|search|filter|category|tag|sort|order|format|version|view|output|download|redirect_to|redirect)=|"
+    r"[?&](q|search|filter|category|tag|sort|order|format|convert|version|view|output|download|redirect_to|redirect)=|"
     r"[?&]sort=|[?&]order=|"
     r"filter%5B|filter\[|"
 
@@ -53,11 +58,13 @@ TRAP_PATTERNS = re.compile(
     r"[?&]paged=\d+|"
 
     # -------------------------------
-    # Calendar / event traps
+    # Calendar / event / timeline traps
     # -------------------------------
     r"/calendar|/events|"
+    r"[?&]ical="
     r"/day/\d{4}-\d{2}-\d{2}|"
     r"/\d{4}/\d{2}/|"
+    r"/timeline|"
 
     # -------------------------------
     # DokuWiki / ICS internal traps
@@ -112,6 +119,10 @@ def extract_next_links(url, resp):
     
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
+
+    if "Error: Forbidden" in text or "not logged in" in text:
+        return []
+
     tokens = []
     cur = ""
     for c in text:
@@ -146,7 +157,7 @@ def extract_next_links(url, resp):
     # record word freq
     with open(WORDS_FILE, "a", encoding="utf-8") as f:
         for token in tokens:
-            if token not in STOP_WORDS:
+            if len(token) >= 3 and not token.isdigit() and token not in STOP_WORDS:
                 f.write(token + "\n")
 
     # record subdomains
@@ -209,19 +220,19 @@ def is_valid(url):
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+            + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
 
-            # code files
-            + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|txt|sql|py|java|c|cpp|h|hpp|cc|cs"
-            + r"|js|ts|jsx|tsx"
-            + r"|json|xml|yaml|yml"
-            + r"|sh|bash|zsh"
-            + r"|log|cfg|ini|conf"
-            + r"|ipynb"
+            # other
+            + r"|txt|sql"  # text/data
+            + r"|py|java|c|cpp|h|hpp|cc|cs|js|ts|jsx|tsx|rkt" # programming / source code
+            + r"|json|yaml|yml|svg" # markup / data formats
+            + r"|sh|bash|zsh" # scripts
+            + r"|log|cfg|ini|conf" # config / logs
+            + r"|ipynb" # notebooks
+            + r"|bib|nb|hs|lsp|scm|lif|m|als|dsp|ma|inc|mhcid|cls|ff|results|hqx|pov|edelsbrunner|class|ss|grm" # misc
 
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 

@@ -40,11 +40,14 @@ MIN_WORDS = 50 # low-value (dead url)
 QUERY_TRAP_PATTERNS = re.compile(
     r"(sid=|session|replytocom|share=|print=|lang=|"
     r"sort=|filter=|page=\d{3,}|"
+    r"action=diff|version=\d+|"
     r"do=export_pdf|do=edit|do=login|do=index|do=media|do=recent|do=revisions|do=backlink|do=$|"
     r"tab_files=|tab_details=|image=|mediado=|sectok=|export_code|"
     r"idx=|rev=|subPage=|skin=|"
     r"s%5B%5D=|s\[\]=|"
-    r"ical=1|outlook-ical=1|format=txt)",
+    r"ical=1|outlook-ical=1|format=txt|"
+    r"post_type=tribe_events|eventDisplay=day|eventDate=\d{4}-\d{2}-\d{2}|"
+    r"tribe-bar-date=\d{4}-\d{2}-\d{2})",
     re.IGNORECASE
 )
 
@@ -53,6 +56,7 @@ CALENDAR_TRAP_PATTERNS = re.compile(
     r"(/events/\d{4}-\d{2}-\d{2}/?|"
     r"/events/month/\d{4}-\d{2}/?|"
     r"/events/category/[^?]*/\d{4}-\d{2}/?|"
+    r"/events/list/page/\d+/?|"
     r"/day/\d{4}-\d{2}-\d{2}/?|"
     r"\d{4}[/-]\d{2}[/-]\d{2}[/-]\d{2})",
     re.IGNORECASE

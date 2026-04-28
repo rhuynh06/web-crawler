@@ -72,9 +72,7 @@ TRAP_PATTERNS = re.compile(
     r"\?do=|" # very similar + little text, shouldn't pass MIN_WORDS test
     r"[?&]idx=|" # open dif sections, same page
 
-    # -------------------------------
-    # Code
-    # -------------------------------
+
     r"\src"
 
     r")",

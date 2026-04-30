@@ -27,43 +27,43 @@ _load_visited()
 
 # constants
 MAX_SIZE = 10 * 1024 * 1024 # 10 MB cap (large file)
-MIN_TOKEN = 100 # low-value (dead url/empty page)
+MIN_TOKEN = 50 # low-value (dead url/empty page)
 TRAP_PATTERNS = re.compile(
     r"("
 
     # Common query (same page)
     # r"[?&](q|search)=|" # TODO: check
-    # r"[?&](sort|order)=|" # TODO: check
+    # r"|[?&](sort|order|orderby)=|" # TODO: check
 
     # Pagination
-    # r"/page/\d+|" # https://ngs.ics.uci.edu/[blog/category/tag/author]/[...]/page/{num}/, all unique
-    r"\?&page=|" # cml: same page dif subPage
+    # r"|/page/\d+" # https://ngs.ics.uci.edu/[blog/category/tag/author]/[...]/page/{num}/, all unique
+    r"[?&]page=" # cml: same page dif subPage
 
     # Login / permissions
-    r"/(login|register)(/|$)|"
-    r"/wp-admin|/wp-login|"
+    r"|/(login|register)(/|$)"
+    r"|/wp-admin|/wp-login"
 
     # Contacts
-    r"[?&]replytocom=|" # only once on cloudberry
+    r"|[?&]replytocom=" # only once on cloudberry
 
     # Format / redirect traps
-    r"[?&](format|version|view|download|redirect)=|"
+    r"|[?&](format|version|view|download|redirect)="
 
     # Calendar / event / date archive
-    r"/calendar|/events|"
-    r"[?&]ical=|"
-    r"/day/\d{4}-\d{2}-\d{2}|"
-    # r"/\d{4}/\d{2}/|" # valuable found
-    # r"/timeline|" # TODO: check
+    r"|/calendar|/events"
+    r"|[?&]ical="
+    r"|/day/\d{4}-\d{2}-\d{2}"
+    # r"|/\d{4}/\d{2}/" # valuable found
+    # r"|/timeline" # TODO: check
 
     # DokuWiki
-    r"\?do=|"
-    r"[?&]idx=|"
-    r"projects:maint|"
+    r"|[?&]do="
+    r"|[?&]idx="
+    r"|projects:maint"
 
     # Code / Dir to src
-    r"/src(/|$)|"
-    r"\?C=[NMSD];O=[AD]" # name/modifed/size/desc; asc/desc (lots in flamingo & ~smyth)
+    r"|/src(/|$)"
+    r"|[?&]C=[NMSD];O=[AD]" # name/modifed/size/desc; asc/desc (lots in flamingo & ~smyth)
 
     r")",
     re.IGNORECASE
@@ -99,7 +99,7 @@ STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'accordi
     'seeming', 'seems', 'seen', 'self', 'selves', 'sent', 'seven', 'several', 'shall', 'she', 'shed', "she'll", 'shes', 'should', "shouldn't", 'show', 'showed', 
     'shown', 'showns', 'shows', 'significant', 'significantly', 'similar', 'similarly', 'since', 'six', 'slightly', 'so', 'some', 'somebody', 'somehow', 'someone', 
     'somethan', 'something', 'sometime', 'sometimes', 'somewhat', 'somewhere', 'soon', 'sorry', 'specifically', 'specified', 'specify', 'specifying', 'still', 
-    'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure'])
+    'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure', 'the', 'there', 'their']) # added last 3
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -134,10 +134,11 @@ def extract_next_links(url, resp):
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
 
-    if "Error: Forbidden" in text or \
-        "Insufficient Access Privileges" in text or \
-        "This page does not exist anymore" in text:
-        return []
+    # TODO: check if needed
+    # if "Error: Forbidden" in text or \
+    #     "Insufficient Access Privileges" in text or \
+    #     "This page does not exist anymore" in text:
+    #     return []
 
     tokens = []
     cur = ""
@@ -158,7 +159,7 @@ def extract_next_links(url, resp):
     # defragment
     page_url = urldefrag(resp.raw_response.url)[0] # [url, fragment]
 
-    # check visited, update if new
+    # check visited, update if new (assuming no changes made)
     if page_url in visited:
         return _extract_links(soup, resp.raw_response.url)
     visited.add(page_url)
@@ -174,7 +175,7 @@ def extract_next_links(url, resp):
     # record word freq
     with open(WORDS_FILE, "a", encoding="utf-8") as f:
         for token in tokens:
-            if not token.isdigit() and token not in STOP_WORDS:
+            if len(token) > 2 and not token.isdigit() and token not in STOP_WORDS:
                 f.write(token + "\n")
 
     # record subdomains
@@ -195,7 +196,7 @@ def _extract_links(soup, base_url):
         # <a href="link">
         href = tag["href"].strip()
 
-        try: # bad links
+        try: # bad/invalid that are syntaxly correct links, ex: https://YOUR_IP_ADDRESS...
             # base + relative -> absolute url (full link on web)
             href = urljoin(base_url, href)
 
@@ -249,7 +250,7 @@ def is_valid(url):
             + r"|sh|bash|zsh" # scripts
             + r"|log|cfg|ini|conf" # config / logs
             + r"|ipynb" # notebook
-            + r"|bib|nb|hs|lsp|scm|lif|m|als|dsp|ma|inc|mhcid|cls|ff|results|hqx|pov|edelsbrunner|class|ss|grm" # misc
+            + r"|bib|nb|hs|lsp|scm|lif|m|als|dsp|ma|inc|mhcid|cls|ff|results|hqx|pov|class|ss|grm" # misc edelsbrunner?? TODO: check
 
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 

@@ -254,17 +254,23 @@ def is_valid(url):
 
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|svg|tiff?|mid|mp2|mp3|mp4"
+            + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|pps|ppsx|doc|docx|xls|xlsx|names"
-            + r"|data|dat|sql|db|sqlite|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+            + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
+            + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
-            + r"|thmx|mso|arff|rtf|jar|csv|tsv|txt"
-            + r"|py|java|c|cc|cpp|cxx|h|hpp|hh|sh|bash|zsh|pl|rb|go|rs|php"
-            + r"|class|war|ear"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$",
-            parsed.path.lower()
-        )
+            + r"|thmx|mso|arff|rtf|jar|csv"
+
+            # other
+            + r"|txt|sql"  # text/data
+            + r"|py|java|c|cpp|h|hpp|cc|cs|js|ts|jsx|tsx|rkt|makefile" # programming / source code
+            + r"|json|yaml|yml|svg" # markup / data formats
+            + r"|sh|bash|zsh" # scripts
+            + r"|log|cfg|ini|conf" # config / logs
+            + r"|ipynb" # notebooks
+            + r"|bib|nb|hs|lsp|scm|lif|m|als|dsp|ma|inc|mhcid|cls|ff|results|hqx|pov|edelsbrunner|class|ss|grm" # misc
+
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
     except (TypeError, ValueError):
         return False

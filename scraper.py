@@ -31,10 +31,6 @@ MIN_TOKEN = 50 # low-value (dead url/empty page)
 TRAP_PATTERNS = re.compile(
     r"("
 
-    # Common query (same page)
-    # r"[?&](q|search)=|" # TODO: check
-    # r"|[?&](sort|order|orderby)=|" # TODO: check
-
     # Pagination
     # r"|/page/\d+" # https://ngs.ics.uci.edu/[blog/category/tag/author]/[...]/page/{num}/, all unique
     r"[?&]page=" # cml: same page dif subPage

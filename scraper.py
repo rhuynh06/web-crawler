@@ -31,24 +31,20 @@ MIN_TOKEN = 100 # low-value (dead url/empty page)
 TRAP_PATTERNS = re.compile(
     r"("
 
-    # Common query
-    r"[?&](q|search)=|"
-    r"[?&](sort|order)=|"
-    # r"[?&](page=\d{2,}|paged=\d+)|"
+    # Common query (same page)
+    # r"[?&](q|search)=|" # TODO: check
+    # r"[?&](sort|order)=|" # TODO: check
 
     # Pagination
-    r"/page/\d+|"
-
-    # Duplicate-content
-    # r"[?&](ref|share|print)=|"
+    # r"/page/\d+|" # https://ngs.ics.uci.edu/[blog/category/tag/author]/[...]/page/{num}/, all unique
+    r"\?&page=|" # cml: same page dif subPage
 
     # Login / permissions
     r"/(login|register)(/|$)|"
     r"/wp-admin|/wp-login|"
 
-    # WordPress dynamic traps
-    # r"[?&](p|page_id)=\d+|"
-    # r"[?&]replytocom=|"
+    # Contacts
+    r"[?&]replytocom=|" # only once on cloudberry
 
     # Format / redirect traps
     r"[?&](format|version|view|download|redirect)=|"
@@ -57,16 +53,17 @@ TRAP_PATTERNS = re.compile(
     r"/calendar|/events|"
     r"[?&]ical=|"
     r"/day/\d{4}-\d{2}-\d{2}|"
-    r"/\d{4}/\d{2}/|"
-    r"/timeline|"
+    # r"/\d{4}/\d{2}/|" # valuable found
+    # r"/timeline|" # TODO: check
 
     # DokuWiki
     r"\?do=|"
     r"[?&]idx=|"
     r"projects:maint|"
 
-    # Code / source paths
-    r"/src(/|$)"
+    # Code / Dir to src
+    r"/src(/|$)|"
+    r"\?C=[NMSD];O=[AD]" # name/modifed/size/desc; asc/desc (lots in flamingo & ~smyth)
 
     r")",
     re.IGNORECASE
@@ -74,35 +71,35 @@ TRAP_PATTERNS = re.compile(
 
 # stop words from https://www.ranks.nl/stopwords, set > list
 STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'according', 'accordingly', 'across', 'act', 'actually', 'added', 'adj', 'affected', 
-'affecting', 'affects', 'after', 'afterwards', 'again', 'against', 'ah', 'all', 'almost', 'alone', 'along', 'already', 'also', 'although', 'always', 'am', 
-'among', 'amongst', 'an', 'and', 'announce', 'another', 'any', 'anybody', 'anyhow', 'anymore', 'anyone', 'anything', 'anyway', 'anyways', 'anywhere', 
-'apparently', 'approximately', 'are', 'aren', 'arent', 'arise', 'around', 'as', 'aside', 'ask', 'asking', 'at', 'auth', 'available', 'away', 'awfully', 'b', 
-'back', 'be', 'became', 'because', 'become', 'becomes', 'becoming', 'been', 'before', 'beforehand', 'begin', 'beginning', 'beginnings', 'begins', 'behind', 
-'being', 'believe', 'below', 'beside', 'besides', 'between', 'beyond', 'biol', 'both', 'brief', 'briefly', 'but', 'by', 'c', 'ca', 'came', 'can', 'cannot', 
-"can't", 'cause', 'causes', 'certain', 'certainly', 'co', 'com', 'come', 'comes', 'contain', 'containing', 'contains', 'could', 'couldnt', 'd', 'date', 'did', 
-"didn't", 'different', 'do', 'does', "doesn't", 'doing', 'done', "don't", 'down', 'downwards', 'due', 'during', 'e', 'each', 'ed', 'edu', 'effect', 'eg', 
-'eight', 'eighty', 'either', 'else', 'elsewhere', 'end', 'ending', 'enough', 'especially', 'et', 'et-al', 'etc', 'even', 'ever', 'every', 'everybody', 
-'everyone', 'everything', 'everywhere', 'ex', 'except', 'f', 'far', 'few', 'ff', 'fifth', 'first', 'five', 'fix', 'followed', 'following', 'follows', 'for', 
-'former', 'formerly', 'forth', 'found', 'four', 'from', 'further', 'furthermore', 'g', 'gave', 'get', 'gets', 'getting', 'give', 'given', 'gives', 'giving', 
-'go', 'goes', 'gone', 'got', 'gotten', 'h', 'had', 'happens', 'hardly', 'has', "hasn't", 'have', "haven't", 'having', 'he', 'hed', 'hence', 'her', 'here', 
-'hereafter', 'hereby', 'herein', 'heres', 'hereupon', 'hers', 'herself', 'hes', 'hi', 'hid', 'him', 'himself', 'his', 'hither', 'home', 'how', 'howbeit', 
-'however', 'hundred', 'i', 'id', 'ie', 'if', "i'll", 'im', 'immediate', 'immediately', 'importance', 'important', 'in', 'inc', 'indeed', 'index', 
-'information', 'instead', 'into', 'invention', 'inward', 'is', "isn't", 'it', 'itd', "it'll", 'its', 'itself', "i've", 'j', 'just', 'k', 'keepkeeps', 'kept', 
-'kg', 'km', 'know', 'known', 'knows', 'l', 'largely', 'last', 'lately', 'later', 'latter', 'latterly', 'least', 'less', 'lest', 'let', 'lets', 'like', 'liked', 
-'likely', 'line', 'little', "'ll", 'look', 'looking', 'looks', 'ltd', 'm', 'made', 'mainly', 'make', 'makes', 'many', 'may', 'maybe', 'me', 'mean', 'means', 
-'meantime', 'meanwhile', 'merely', 'mg', 'might', 'million', 'miss', 'ml', 'more', 'moreover', 'most', 'mostly', 'mr', 'mrs', 'much', 'mug', 'must', 'my', 
-'myself', 'n', 'na', 'name', 'namely', 'nay', 'nd', 'near', 'nearly', 'necessarily', 'necessary', 'need', 'needs', 'neither', 'never', 'nevertheless', 'new', 
-'next', 'nine', 'ninety', 'no', 'nobody', 'non', 'none', 'nonetheless', 'noone', 'nor', 'normally', 'nos', 'not', 'noted', 'nothing', 'now', 'nowhere', 'o', 
-'obtain', 'obtained', 'obviously', 'of', 'off', 'often', 'oh', 'ok', 'okay', 'old', 'omitted', 'on', 'once', 'one', 'ones', 'only', 'onto', 'or', 'ord', 
-'other', 'others', 'otherwise', 'ought', 'our', 'ours', 'ourselves', 'out', 'outside', 'over', 'overall', 'owing', 'own', 'p', 'page', 'pages', 'part', 
-'particular', 'particularly', 'past', 'per', 'perhaps', 'placed', 'please', 'plus', 'poorly', 'possible', 'possibly', 'potentially', 'pp', 'predominantly', 
-'present', 'previously', 'primarily', 'probably', 'promptly', 'proud', 'provides', 'put', 'q', 'que', 'quickly', 'quite', 'qv', 'r', 'ran', 'rather', 'rd', 
-'re', 'readily', 'really', 'recent', 'recently', 'ref', 'refs', 'regarding', 'regardless', 'regards', 'related', 'relatively', 'research', 'respectively', 
-'resulted', 'resulting', 'results', 'right', 'run', 's', 'said', 'same', 'saw', 'say', 'saying', 'says', 'sec', 'section', 'see', 'seeing', 'seem', 'seemed', 
-'seeming', 'seems', 'seen', 'self', 'selves', 'sent', 'seven', 'several', 'shall', 'she', 'shed', "she'll", 'shes', 'should', "shouldn't", 'show', 'showed', 
-'shown', 'showns', 'shows', 'significant', 'significantly', 'similar', 'similarly', 'since', 'six', 'slightly', 'so', 'some', 'somebody', 'somehow', 'someone', 
-'somethan', 'something', 'sometime', 'sometimes', 'somewhat', 'somewhere', 'soon', 'sorry', 'specifically', 'specified', 'specify', 'specifying', 'still', 
-'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure'])
+    'affecting', 'affects', 'after', 'afterwards', 'again', 'against', 'ah', 'all', 'almost', 'alone', 'along', 'already', 'also', 'although', 'always', 'am', 
+    'among', 'amongst', 'an', 'and', 'announce', 'another', 'any', 'anybody', 'anyhow', 'anymore', 'anyone', 'anything', 'anyway', 'anyways', 'anywhere', 
+    'apparently', 'approximately', 'are', 'aren', 'arent', 'arise', 'around', 'as', 'aside', 'ask', 'asking', 'at', 'auth', 'available', 'away', 'awfully', 'b', 
+    'back', 'be', 'became', 'because', 'become', 'becomes', 'becoming', 'been', 'before', 'beforehand', 'begin', 'beginning', 'beginnings', 'begins', 'behind', 
+    'being', 'believe', 'below', 'beside', 'besides', 'between', 'beyond', 'biol', 'both', 'brief', 'briefly', 'but', 'by', 'c', 'ca', 'came', 'can', 'cannot', 
+    "can't", 'cause', 'causes', 'certain', 'certainly', 'co', 'com', 'come', 'comes', 'contain', 'containing', 'contains', 'could', 'couldnt', 'd', 'date', 'did', 
+    "didn't", 'different', 'do', 'does', "doesn't", 'doing', 'done', "don't", 'down', 'downwards', 'due', 'during', 'e', 'each', 'ed', 'edu', 'effect', 'eg', 
+    'eight', 'eighty', 'either', 'else', 'elsewhere', 'end', 'ending', 'enough', 'especially', 'et', 'et-al', 'etc', 'even', 'ever', 'every', 'everybody', 
+    'everyone', 'everything', 'everywhere', 'ex', 'except', 'f', 'far', 'few', 'ff', 'fifth', 'first', 'five', 'fix', 'followed', 'following', 'follows', 'for', 
+    'former', 'formerly', 'forth', 'found', 'four', 'from', 'further', 'furthermore', 'g', 'gave', 'get', 'gets', 'getting', 'give', 'given', 'gives', 'giving', 
+    'go', 'goes', 'gone', 'got', 'gotten', 'h', 'had', 'happens', 'hardly', 'has', "hasn't", 'have', "haven't", 'having', 'he', 'hed', 'hence', 'her', 'here', 
+    'hereafter', 'hereby', 'herein', 'heres', 'hereupon', 'hers', 'herself', 'hes', 'hi', 'hid', 'him', 'himself', 'his', 'hither', 'home', 'how', 'howbeit', 
+    'however', 'hundred', 'i', 'id', 'ie', 'if', "i'll", 'im', 'immediate', 'immediately', 'importance', 'important', 'in', 'inc', 'indeed', 'index', 
+    'information', 'instead', 'into', 'invention', 'inward', 'is', "isn't", 'it', 'itd', "it'll", 'its', 'itself', "i've", 'j', 'just', 'k', 'keepkeeps', 'kept', 
+    'kg', 'km', 'know', 'known', 'knows', 'l', 'largely', 'last', 'lately', 'later', 'latter', 'latterly', 'least', 'less', 'lest', 'let', 'lets', 'like', 'liked', 
+    'likely', 'line', 'little', "'ll", 'look', 'looking', 'looks', 'ltd', 'm', 'made', 'mainly', 'make', 'makes', 'many', 'may', 'maybe', 'me', 'mean', 'means', 
+    'meantime', 'meanwhile', 'merely', 'mg', 'might', 'million', 'miss', 'ml', 'more', 'moreover', 'most', 'mostly', 'mr', 'mrs', 'much', 'mug', 'must', 'my', 
+    'myself', 'n', 'na', 'name', 'namely', 'nay', 'nd', 'near', 'nearly', 'necessarily', 'necessary', 'need', 'needs', 'neither', 'never', 'nevertheless', 'new', 
+    'next', 'nine', 'ninety', 'no', 'nobody', 'non', 'none', 'nonetheless', 'noone', 'nor', 'normally', 'nos', 'not', 'noted', 'nothing', 'now', 'nowhere', 'o', 
+    'obtain', 'obtained', 'obviously', 'of', 'off', 'often', 'oh', 'ok', 'okay', 'old', 'omitted', 'on', 'once', 'one', 'ones', 'only', 'onto', 'or', 'ord', 
+    'other', 'others', 'otherwise', 'ought', 'our', 'ours', 'ourselves', 'out', 'outside', 'over', 'overall', 'owing', 'own', 'p', 'page', 'pages', 'part', 
+    'particular', 'particularly', 'past', 'per', 'perhaps', 'placed', 'please', 'plus', 'poorly', 'possible', 'possibly', 'potentially', 'pp', 'predominantly', 
+    'present', 'previously', 'primarily', 'probably', 'promptly', 'proud', 'provides', 'put', 'q', 'que', 'quickly', 'quite', 'qv', 'r', 'ran', 'rather', 'rd', 
+    're', 'readily', 'really', 'recent', 'recently', 'ref', 'refs', 'regarding', 'regardless', 'regards', 'related', 'relatively', 'research', 'respectively', 
+    'resulted', 'resulting', 'results', 'right', 'run', 's', 'said', 'same', 'saw', 'say', 'saying', 'says', 'sec', 'section', 'see', 'seeing', 'seem', 'seemed', 
+    'seeming', 'seems', 'seen', 'self', 'selves', 'sent', 'seven', 'several', 'shall', 'she', 'shed', "she'll", 'shes', 'should', "shouldn't", 'show', 'showed', 
+    'shown', 'showns', 'shows', 'significant', 'significantly', 'similar', 'similarly', 'since', 'six', 'slightly', 'so', 'some', 'somebody', 'somehow', 'someone', 
+    'somethan', 'something', 'sometime', 'sometimes', 'somewhat', 'somewhere', 'soon', 'sorry', 'specifically', 'specified', 'specify', 'specifying', 'still', 
+    'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure'])
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -137,7 +134,9 @@ def extract_next_links(url, resp):
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
 
-    if "Error: Forbidden" in text or "not logged in" in text:
+    if "Error: Forbidden" in text or \
+        "Insufficient Access Privileges" in text or \
+        "This page does not exist anymore" in text:
         return []
 
     tokens = []
@@ -165,6 +164,7 @@ def extract_next_links(url, resp):
     visited.add(page_url)
 
     # record page: url, word_count
+    # TODO: which page (redirected?)
     with open(PAGES_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps({
             "url": page_url,
@@ -174,7 +174,7 @@ def extract_next_links(url, resp):
     # record word freq
     with open(WORDS_FILE, "a", encoding="utf-8") as f:
         for token in tokens:
-            if len(token) >= 3 and not token.isdigit() and token not in STOP_WORDS:
+            if not token.isdigit() and token not in STOP_WORDS:
                 f.write(token + "\n")
 
     # record subdomains
@@ -220,10 +220,10 @@ def is_valid(url):
         # allowed domains
         host = parsed.netloc.lower()
         allowed = (
-            host.endswith(".ics.uci.edu")         or host == "ics.uci.edu"         or
-            host.endswith(".cs.uci.edu")          or host == "cs.uci.edu"          or
+            host.endswith(".ics.uci.edu") or host == "ics.uci.edu"  or
+            host.endswith(".cs.uci.edu") or host == "cs.uci.edu" or
             host.endswith(".informatics.uci.edu") or host == "informatics.uci.edu" or
-            host.endswith(".stat.uci.edu")        or host == "stat.uci.edu"
+            host.endswith(".stat.uci.edu") or host == "stat.uci.edu"
         )
         if not allowed:
             return False
@@ -234,7 +234,7 @@ def is_valid(url):
             return False
 
         return not re.match(
-            r".*\.(css|js|bmp|gif|jpe?g|ico"
+            r".*[./](css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
@@ -243,12 +243,12 @@ def is_valid(url):
             + r"|thmx|mso|arff|rtf|jar|csv"
 
             # other
-            + r"|txt|sql"  # text/data
-            + r"|py|java|c|cpp|h|hpp|cc|cs|js|ts|jsx|tsx|rkt|makefile" # programming / source code
+            + r"|txt|sql" # text/data
+            + r"|py|java|c|cpp|h|hpp|cc|cs|ts|jsx|tsx|rkt|makefile" # programming
             + r"|json|yaml|yml|svg" # markup / data formats
             + r"|sh|bash|zsh" # scripts
             + r"|log|cfg|ini|conf" # config / logs
-            + r"|ipynb" # notebooks
+            + r"|ipynb" # notebook
             + r"|bib|nb|hs|lsp|scm|lif|m|als|dsp|ma|inc|mhcid|cls|ff|results|hqx|pov|edelsbrunner|class|ss|grm" # misc
 
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
@@ -285,7 +285,6 @@ def print_report():
                 word = line.strip()
                 if word:
                     word_counts[word] += 1
- 
     print("3. 50 most common words:")
     for word, count in sorted(word_counts.items(), key=lambda x: -x[1])[:50]:
         print(f"   {word:30s} {count}")

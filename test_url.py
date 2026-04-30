@@ -1,7 +1,7 @@
 from scraper import is_valid, TRAP_PATTERNS
 from urllib.parse import urlparse
 
-TEST_URLS = ["https://ics.uci.edu/~alfchen/pubs/alfred_dasc11_cbf.bib"]
+TEST_URLS = ["https://wiki.ics.uci.edu/doku.php/group:support:services:mail"]
 
 def test_url(url):
     print("=" * 80)

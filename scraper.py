@@ -31,51 +31,42 @@ MIN_TOKEN = 100 # low-value (dead url/empty page)
 TRAP_PATTERNS = re.compile(
     r"("
 
-    # -------------------------------
-    # WordPress / dynamic query traps
-    # -------------------------------
-    r"[?&](p|page_id)=\d+|"
-    r"[?&](replytocom|share|print)=|"
+    # Common query
+    r"[?&](q|search)=|"
+    r"[?&](sort|order)=|"
+    # r"[?&](page=\d{2,}|paged=\d+)|"
 
-    # -------------------------------
-    # Permissions
-    # -------------------------------
-    r"/login|/register|/preferences|"
+    # Pagination
+    r"/page/\d+|"
+
+    # Duplicate-content
+    # r"[?&](ref|share|print)=|"
+
+    # Login / permissions
+    r"/(login|register)(/|$)|"
     r"/wp-admin|/wp-login|"
 
-    # -------------------------------
-    # Search / filter / sorting traps
-    # -------------------------------
-    r"[?&](q|search|filter|category|tag|sort|order|format|convert|version|view|output|download|redirect_to|redirect)=|"
-    r"[?&]sort=|[?&]order=|"
-    r"filter%5B|filter\[|"
+    # WordPress dynamic traps
+    # r"[?&](p|page_id)=\d+|"
+    # r"[?&]replytocom=|"
 
-    # -------------------------------
-    # Pagination traps
-    # -------------------------------
-    r"/page/\d+|"
-    r"[?&]page=\d{2,}|"
-    r"[?&]paged=\d+|"
+    # Format / redirect traps
+    r"[?&](format|version|view|download|redirect)=|"
 
-    # -------------------------------
-    # Calendar / event / timeline traps
-    # -------------------------------
+    # Calendar / event / date archive
     r"/calendar|/events|"
-    r"[?&]ical="
+    r"[?&]ical=|"
     r"/day/\d{4}-\d{2}-\d{2}|"
     r"/\d{4}/\d{2}/|"
     r"/timeline|"
 
-    # -------------------------------
-    # DokuWiki / ICS internal traps
-    # -------------------------------
-    r"\?do=|" # very similar + little text, shouldn't pass MIN_WORDS test
-    r"[?&]idx=|" # open dif sections, same page
+    # DokuWiki
+    r"\?do=|"
+    r"[?&]idx=|"
+    r"projects:maint|"
 
-    # -------------------------------
-    # Code
-    # -------------------------------
-    r"\src"
+    # Code / source paths
+    r"/src(/|$)"
 
     r")",
     re.IGNORECASE

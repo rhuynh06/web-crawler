@@ -36,10 +36,11 @@ TRAP_PATTERNS = re.compile(
     r"[?&]page=" # cml: same page dif subPage
 
     # Login / permissions
-    r"|/(login|register|status)(/|$)" # status from dale-cooper
+    r"|/(login|register|status)([/?]|$)" # status from dale-cooper
     r"|/wp-admin|/wp-login"
 
-    # Contacts
+    # Misc
+    r"|[?&](order|orderby)=" # only 3 found in datasets 
     r"|[?&]replytocom=" # only once on cloudberry
 
     # Format / redirect traps
@@ -65,7 +66,7 @@ TRAP_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
-# stop words from https://www.ranks.nl/stopwords, set > list
+# stop words from https://www.ranks.nl/stopwords (long list), set > list
 STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'according', 'accordingly', 'across', 'act', 'actually', 'added', 'adj', 'affected', 
     'affecting', 'affects', 'after', 'afterwards', 'again', 'against', 'ah', 'all', 'almost', 'alone', 'along', 'already', 'also', 'although', 'always', 'am', 
     'among', 'amongst', 'an', 'and', 'announce', 'another', 'any', 'anybody', 'anyhow', 'anymore', 'anyone', 'anything', 'anyway', 'anyways', 'anywhere', 
@@ -95,7 +96,8 @@ STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'accordi
     'seeming', 'seems', 'seen', 'self', 'selves', 'sent', 'seven', 'several', 'shall', 'she', 'shed', "she'll", 'shes', 'should', "shouldn't", 'show', 'showed', 
     'shown', 'showns', 'shows', 'significant', 'significantly', 'similar', 'similarly', 'since', 'six', 'slightly', 'so', 'some', 'somebody', 'somehow', 'someone', 
     'somethan', 'something', 'sometime', 'sometimes', 'somewhat', 'somewhere', 'soon', 'sorry', 'specifically', 'specified', 'specify', 'specifying', 'still', 
-    'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure', 'the', 'there', 'their']) # added last 3
+    'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure',
+    'that', 'the', 'their', 'there', 'these', 'they', 'two', 'was', 'what', 'which', 'will', 'with', 'you', 'your']) # personally added this line of stop words
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -117,6 +119,18 @@ def extract_next_links(url, resp):
     
     content = resp.raw_response.content
 
+    # defragment
+    page_url = urldefrag(resp.raw_response.url)[0] # [url, fragment]
+
+    # record subdomains (regardless of whether or not it passes, instructions say FOUND not crawled)
+    host = urlparse(page_url).netloc.lower()
+    if host.endswith(".uci.edu"):
+        with open(SUBDOMAINS_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "subdomain": host,
+                "url": page_url
+            }) + "\n")
+
     # skip files too large
     if len(content) > MAX_SIZE:
         return []
@@ -135,6 +149,8 @@ def extract_next_links(url, resp):
         "Insufficient Access Privileges" in text:
         return []
 
+    # TODO: check for "Not logged in" - https://helpdesk.ics.uci.edu/NoAuth/Login.html?next=a22e52e4218af2a6d15e4511e99510d0
+
     tokens = []
     cur = ""
     for c in text:
@@ -150,9 +166,6 @@ def extract_next_links(url, resp):
     # skip dead (near-empty) URLs
     if len(tokens) < MIN_TOKEN:
         return []
-
-    # defragment
-    page_url = urldefrag(resp.raw_response.url)[0] # [url, fragment]
 
     # check visited, update if new (assuming no changes made)
     if page_url in visited:
@@ -172,15 +185,6 @@ def extract_next_links(url, resp):
         for token in tokens:
             if len(token) > 2 and not token.isdigit() and token not in STOP_WORDS:
                 f.write(token + "\n")
-
-    # record subdomains
-    host = urlparse(page_url).netloc.lower()
-    if host.endswith(".uci.edu"):
-        with open(SUBDOMAINS_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "subdomain": host,
-                "url": page_url
-            }) + "\n")
 
     return _extract_links(soup, resp.raw_response.url)
  

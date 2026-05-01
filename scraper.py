@@ -8,12 +8,12 @@ from collections import defaultdict
 
 # file paths
 DATA_DIR = "crawl_data"
+os.makedirs(DATA_DIR, exist_ok=True)
+
 PAGES_FILE = os.path.join(DATA_DIR, "pages.jsonl")
 WORDS_FILE = os.path.join(DATA_DIR, "words.txt")
 SUBDOMAINS_FOUND_FILE = os.path.join(DATA_DIR, "subdomains_found.jsonl")
 SUBDOMAINS_CRAWLED_FILE = os.path.join(DATA_DIR, "subdomains_crawled.jsonl")
-
-os.makedirs(DATA_DIR, exist_ok=True)
 
 # globals (perists thru entire crawl, too expensive to re-open to read/write for each page)
 visited = set()
@@ -58,6 +58,7 @@ TRAP_PATTERNS = re.compile(
     r"|[?&]do="
     r"|[?&]idx="
     r"|projects:maint"
+    r"|/password"
 
     # Code / Dir to src
     r"|/src(/|$)"
@@ -98,7 +99,7 @@ STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'accordi
     'shown', 'showns', 'shows', 'significant', 'significantly', 'similar', 'similarly', 'since', 'six', 'slightly', 'so', 'some', 'somebody', 'somehow', 'someone', 
     'somethan', 'something', 'sometime', 'sometimes', 'somewhat', 'somewhere', 'soon', 'sorry', 'specifically', 'specified', 'specify', 'specifying', 'still', 
     'stop', 'strongly', 'sub', 'substantially', 'successfully', 'such', 'sufficiently', 'suggest', 'sup', 'sure',
-    'that', 'the', 'their', 'there', 'these', 'they', 'two', 'was', 'what', 'which', 'will', 'with', 'you', 'your']) # personally added this line of stop words
+    'than', 'that', 'the', 'their', 'there', 'these', 'they', 'this', 'two', 'was', 'what', 'will', 'with', 'when', 'you', 'your']) # personally added this line of stop words
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -141,6 +142,10 @@ def extract_next_links(url, resp):
     if len(content) > MAX_SIZE:
         return []
 
+    # check for null bytes (break tokenizer + little value), ex: https://ics.uci.edu/~cs224/
+    if b'\x00' in content[:100]:
+        return []
+
     # parse HTML (get actual text)
     try:
         soup = BeautifulSoup(content, "lxml")
@@ -150,9 +155,12 @@ def extract_next_links(url, resp):
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
 
-    # for certain login pages that don't have login in path (ex: doku)
+    # for certain login pages that don't have login in path (ex: doku) OR no longer exist (ex: doku)
     if "Error: Forbidden" in text or \
-        "Insufficient Access Privileges" in text:
+        "Insufficient Access Privileges" in text or \
+        "Permission Denied" in text or \
+        "This page does not exist anymore" in text or \
+        "This topic does not exist yet" in text:
         return []
 
     tokens = []
@@ -236,7 +244,7 @@ def is_valid(url):
             host.endswith(".informatics.uci.edu") or host == "informatics.uci.edu" or
             host.endswith(".stat.uci.edu") or host == "stat.uci.edu"
         )
-        if not allowed:
+        if not allowed or host.startswith("password."): # all of https://password.ics.uci.edu/ssp/index.php
             return False
         
         # check trap patterns
@@ -322,3 +330,5 @@ def print_report():
     print(f"\nCrawled only {len(crawled_subdomains)}:")
     for sub in sorted(crawled_subdomains):
         print(f"   {sub}, {len(crawled_subdomains[sub])}")
+
+print_report()

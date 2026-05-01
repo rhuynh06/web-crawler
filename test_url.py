@@ -1,11 +1,8 @@
 from scraper import is_valid, TRAP_PATTERNS
 from urllib.parse import urlparse
 
-TEST_URLS = ["https://hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
-"https://hub.ics.uci.edu/hub/login?next=%2Fhub%2Fadmin",
-"https://staging-hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
-"https://julia-hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
-"https://hub.ics.uci.edu/hub/login?next=%2Fhub%2Fhome"
+TEST_URLS = [
+    "https://password.ics.uci.edu/ssp/index.php?action=resetbyquestions"
 ]
 
 def test_url(url):
@@ -14,31 +11,28 @@ def test_url(url):
 
     parsed = urlparse(url)
 
-    # Check scheme
     if parsed.scheme not in ["http", "https"]:
-        print("❌ Invalid scheme")
+        print("  ❌ Invalid scheme")
         return
 
-    # Check trap patterns
     full_url = parsed.path + ("?" + parsed.query if parsed.query else "")
     if TRAP_PATTERNS.search(full_url):
-        print("❌ Blocked by TRAP_PATTERNS")
+        print("  ❌ Blocked by TRAP_PATTERNS")
     else:
-        print("✅ Passed TRAP_PATTERNS")
+        print("  ✅ Passed TRAP_PATTERNS")
 
-    # Check is_valid
     if is_valid(url):
-        print("✅ is_valid = TRUE (will crawl)")
+        print("  ✅ is_valid = TRUE  (will crawl)")
     else:
-        print("❌ is_valid = FALSE (will NOT crawl)")
+        print("  ❌ is_valid = FALSE (will NOT crawl)")
 
 def main():
-    print("\n=== URL TEST RESULTS ===\n")
+    print("\n=== URL TESTS ===\n")
     for url in TEST_URLS:
         try:
             test_url(url)
         except Exception as e:
-            print(f"⚠️ Error testing {url}: {e}")
+            print(f"  ⚠️ Error: {e}")
 
 if __name__ == "__main__":
     main()

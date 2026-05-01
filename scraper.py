@@ -36,7 +36,7 @@ TRAP_PATTERNS = re.compile(
     r"[?&]page=" # cml: same page dif subPage
 
     # Login / permissions
-    r"|/(login|register)(/|$)"
+    r"|/(login|register|status)(/|$)" # status from dale-cooper
     r"|/wp-admin|/wp-login"
 
     # Contacts
@@ -45,12 +45,12 @@ TRAP_PATTERNS = re.compile(
     # Format / redirect traps
     r"|[?&](format|version|view|download|redirect)="
 
-    # Calendar / event / date archive
+    # Calendar / event / date archive (mostly from grape)
     r"|/calendar|/events"
     r"|[?&]ical="
     r"|/day/\d{4}-\d{2}-\d{2}"
+    r"|/timeline" 
     # r"|/\d{4}/\d{2}/" # valuable found
-    # r"|/timeline" # TODO: check
 
     # DokuWiki
     r"|[?&]do="
@@ -130,11 +130,10 @@ def extract_next_links(url, resp):
     # get tokens (Ryan's tokenizer from assignment 1 w/o file)
     text = soup.get_text(separator=" ", strip=True) # strip HTML, just actual text
 
-    # TODO: check if needed
-    # if "Error: Forbidden" in text or \
-    #     "Insufficient Access Privileges" in text or \
-    #     "This page does not exist anymore" in text:
-    #     return []
+    # for certain login pages that don't have login in path (ex: doku)
+    if "Error: Forbidden" in text or \
+        "Insufficient Access Privileges" in text:
+        return []
 
     tokens = []
     cur = ""

@@ -10,7 +10,8 @@ from collections import defaultdict
 DATA_DIR = "crawl_data"
 PAGES_FILE = os.path.join(DATA_DIR, "pages.jsonl")
 WORDS_FILE = os.path.join(DATA_DIR, "words.txt")
-SUBDOMAINS_FILE = os.path.join(DATA_DIR, "subdomains.jsonl")
+SUBDOMAINS_FOUND_FILE = os.path.join(DATA_DIR, "subdomains_found.jsonl")
+SUBDOMAINS_CRAWLED_FILE = os.path.join(DATA_DIR, "subdomains_crawled.jsonl")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -36,7 +37,7 @@ TRAP_PATTERNS = re.compile(
     r"[?&]page=" # cml: same page dif subPage
 
     # Login / permissions
-    r"|/(login|register|status)([/?]|$)" # status from dale-cooper
+    r"|/(login|register|status)([/?.]|$)" # status from dale-cooper
     r"|/wp-admin|/wp-login"
 
     # Misc
@@ -101,7 +102,7 @@ STOP_WORDS =  set(['a', 'able', 'about', 'above', 'abst', 'accordance', 'accordi
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]
+    return [link for link in links if is_valid(link)] # applied to original extracted link (not possible redirected)
 
 def extract_next_links(url, resp):
     # url: the URL that was used to get the page
@@ -122,14 +123,19 @@ def extract_next_links(url, resp):
     # defragment
     page_url = urldefrag(resp.raw_response.url)[0] # [url, fragment]
 
-    # record subdomains (regardless of whether or not it passes, instructions say FOUND not crawled)
+    # record all subdomains found (regardless of whether it's crawled/pass trap tests)
     host = urlparse(page_url).netloc.lower()
     if host.endswith(".uci.edu"):
-        with open(SUBDOMAINS_FILE, "a", encoding="utf-8") as f:
+        with open(SUBDOMAINS_FOUND_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps({
                 "subdomain": host,
                 "url": page_url
             }) + "\n")
+
+    # check against redirects whose original passed outgoing link check
+    # ex: https://hub.ics.uci.edu/hub/login?next=%2Fhub%2F
+    if not is_valid(page_url):
+        return []
 
     # skip files too large
     if len(content) > MAX_SIZE:
@@ -148,8 +154,6 @@ def extract_next_links(url, resp):
     if "Error: Forbidden" in text or \
         "Insufficient Access Privileges" in text:
         return []
-
-    # TODO: check for "Not logged in" - https://helpdesk.ics.uci.edu/NoAuth/Login.html?next=a22e52e4218af2a6d15e4511e99510d0
 
     tokens = []
     cur = ""
@@ -172,8 +176,7 @@ def extract_next_links(url, resp):
         return _extract_links(soup, resp.raw_response.url)
     visited.add(page_url)
 
-    # record page: url, word_count
-    # TODO: which page (redirected?)
+    # record page: url (redirected from raw_response.url), word_count
     with open(PAGES_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps({
             "url": page_url,
@@ -185,6 +188,14 @@ def extract_next_links(url, resp):
         for token in tokens:
             if len(token) > 2 and not token.isdigit() and token not in STOP_WORDS:
                 f.write(token + "\n")
+
+    # record crawled subdomains
+    if host.endswith(".uci.edu"):
+        with open(SUBDOMAINS_CRAWLED_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "subdomain": host,
+                "url": page_url
+            }) + "\n")
 
     return _extract_links(soup, resp.raw_response.url)
  
@@ -290,13 +301,24 @@ def print_report():
         print(f"   {word:30s} {count}")
  
     # subdomains
-    subdomain_pages = defaultdict(set)
-    if os.path.exists(SUBDOMAINS_FILE):
-        with open(SUBDOMAINS_FILE, "r", encoding="utf-8") as f:
+    print(f"\n4. Subdomains of .uci.edu:")
+
+    found_subdomains = defaultdict(set)
+    if os.path.exists(SUBDOMAINS_FOUND_FILE):
+        with open(SUBDOMAINS_FOUND_FILE, "r", encoding="utf-8") as f:
             for line in f:
                 entry = json.loads(line.strip())
-                subdomain_pages[entry["subdomain"]].add(entry["url"])
- 
-    print(f"\n4. Subdomains of .uci.edu ({len(subdomain_pages)} total):")
-    for sub in sorted(subdomain_pages):
-        print(f"   {sub}, {len(subdomain_pages[sub])}")
+                found_subdomains[entry["subdomain"]].add(entry["url"])
+    print(f"\nFound {len(found_subdomains)} total:")
+    for sub in sorted(found_subdomains):
+        print(f"   {sub}, {len(found_subdomains[sub])}")
+
+    crawled_subdomains = defaultdict(set)
+    if os.path.exists(SUBDOMAINS_CRAWLED_FILE):
+        with open(SUBDOMAINS_CRAWLED_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                entry = json.loads(line.strip())
+                crawled_subdomains[entry["subdomain"]].add(entry["url"])
+    print(f"\nCrawled only {len(crawled_subdomains)}:")
+    for sub in sorted(crawled_subdomains):
+        print(f"   {sub}, {len(crawled_subdomains[sub])}")

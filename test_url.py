@@ -1,7 +1,12 @@
 from scraper import is_valid, TRAP_PATTERNS
 from urllib.parse import urlparse
 
-TEST_URLS = ["https://hub.ics.uci.edu/hub/login?next=%2Fhub%2Fhome"]
+TEST_URLS = ["https://hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
+"https://hub.ics.uci.edu/hub/login?next=%2Fhub%2Fadmin",
+"https://staging-hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
+"https://julia-hub.ics.uci.edu/hub/login?next=%2Fhub%2F",
+"https://hub.ics.uci.edu/hub/login?next=%2Fhub%2Fhome"
+]
 
 def test_url(url):
     print("=" * 80)
